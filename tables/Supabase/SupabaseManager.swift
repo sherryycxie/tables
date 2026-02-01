@@ -25,6 +25,7 @@ final class SupabaseManager: ObservableObject {
     }
 
     @Published var tables: [SupabaseTable] = []
+    @Published var reflections: [SupabaseReflection] = []
     @Published var isLoading = false
     @Published var error: String?
 
@@ -91,6 +92,7 @@ final class SupabaseManager: ObservableObject {
             isAuthenticated = true
             await fetchProfile()
             await fetchTables()
+            await fetchReflections()
             await setupRealtimeSubscription()
         } catch {
             isAuthenticated = false
@@ -169,6 +171,7 @@ final class SupabaseManager: ObservableObject {
         isAuthenticated = true
         await fetchProfile()
         await fetchTables()
+        await fetchReflections()
         await setupRealtimeSubscription()
     }
 
@@ -182,6 +185,7 @@ final class SupabaseManager: ObservableObject {
         currentLastName = nil
         currentAccessToken = nil
         tables = []
+        reflections = []
         await removeRealtimeSubscription()
         await removeAllCardSubscriptions()
     }
@@ -851,6 +855,69 @@ final class SupabaseManager: ObservableObject {
                 .execute()
 
             return try JSONDecoder.supabaseDecoder.decode([SupabaseNudge].self, from: response.data)
+        }
+    }
+
+    // MARK: - Reflections
+
+    func fetchReflections() async {
+        guard isAuthenticated, let userId = currentUserId else { return }
+
+        do {
+            try await executeWithTokenRefresh {
+                let response = try await self.postgrest
+                    .from("reflections")
+                    .select()
+                    .eq("user_id", value: userId.uuidString)
+                    .order("created_at", ascending: false)
+                    .execute()
+
+                self.reflections = try JSONDecoder.supabaseDecoder.decode([SupabaseReflection].self, from: response.data)
+                print("📋 Fetched \(self.reflections.count) reflections")
+            }
+        } catch {
+            print("⚠️ Failed to fetch reflections: \(error)")
+        }
+    }
+
+    func createReflection(body: String, prompt: String?, reflectionType: String) async throws -> SupabaseReflection {
+        guard let userId = currentUserId else {
+            throw SupabaseError.notAuthenticated
+        }
+
+        return try await executeWithTokenRefresh {
+            let newReflection = InsertReflection(
+                id: UUID(),
+                userId: userId,
+                body: body,
+                prompt: prompt,
+                reflectionType: reflectionType
+            )
+
+            let response = try await self.postgrest
+                .from("reflections")
+                .insert(newReflection)
+                .select()
+                .single()
+                .execute()
+
+            let created = try JSONDecoder.supabaseDecoder.decode(SupabaseReflection.self, from: response.data)
+            self.reflections.insert(created, at: 0)
+            print("✅ Created reflection: \(created.id)")
+            return created
+        }
+    }
+
+    func deleteReflection(_ reflectionId: UUID) async throws {
+        try await executeWithTokenRefresh {
+            try await self.postgrest
+                .from("reflections")
+                .delete()
+                .eq("id", value: reflectionId.uuidString)
+                .execute()
+
+            self.reflections.removeAll { $0.id == reflectionId }
+            print("✅ Deleted reflection: \(reflectionId)")
         }
     }
 

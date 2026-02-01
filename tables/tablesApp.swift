@@ -12,7 +12,8 @@ struct TablesApp: App {
                 TableModel.self,
                 CardModel.self,
                 CommentModel.self,
-                NudgeModel.self
+                NudgeModel.self,
+                ReflectionModel.self
             ])
             let configuration = ModelConfiguration(
                 schema: schema,
@@ -29,7 +30,7 @@ struct TablesApp: App {
         WindowGroup {
             Group {
                 if supabaseManager.isAuthenticated {
-                    SupabaseHomeView()
+                    NewHomeView()
                 } else {
                     AuthView()
                 }

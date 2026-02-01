@@ -201,3 +201,37 @@ struct InsertProfile: Codable, Sendable {
         case lastName = "last_name"
     }
 }
+
+// MARK: - Reflections
+
+struct SupabaseReflection: Codable, Identifiable, Sendable {
+    let id: UUID
+    let userId: UUID
+    var body: String
+    var prompt: String?
+    var reflectionType: String
+    var createdAt: Date
+    var updatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, body, prompt
+        case userId = "user_id"
+        case reflectionType = "reflection_type"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct InsertReflection: Codable, Sendable {
+    let id: UUID
+    let userId: UUID
+    var body: String
+    var prompt: String?
+    var reflectionType: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, body, prompt
+        case userId = "user_id"
+        case reflectionType = "reflection_type"
+    }
+}
