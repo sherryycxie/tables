@@ -3,7 +3,7 @@ import SwiftUI
 struct NewHomeView: View {
     @EnvironmentObject var supabaseManager: SupabaseManager
 
-    @State private var isShowingQuickStartMenu = false
+    @State private var isShowingLandingPage = true
     @State private var isShowingQuickWin = false
     @State private var isShowingDeepReflection = false
     @State private var isShowingCreateTable = false
@@ -67,7 +67,7 @@ struct NewHomeView: View {
                 }
 
                 PrimaryButton(title: "Quick Start", systemImage: "plus") {
-                    isShowingQuickStartMenu = true
+                    isShowingLandingPage = true
                 }
                 .padding(.trailing, DesignSystem.Padding.screen)
                 .padding(.bottom, DesignSystem.Padding.screen)
@@ -84,28 +84,30 @@ struct NewHomeView: View {
             .navigationDestination(item: $selectedTable) { table in
                 SupabaseTableDetailView(table: table)
             }
-            .sheet(isPresented: $isShowingQuickStartMenu) {
+            .fullScreenCover(isPresented: $isShowingLandingPage) {
                 QuickStartMenuView(
                     onLogWin: {
-                        isShowingQuickStartMenu = false
+                        isShowingLandingPage = false
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             isShowingQuickWin = true
                         }
                     },
                     onDeepReflection: {
-                        isShowingQuickStartMenu = false
+                        isShowingLandingPage = false
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             isShowingDeepReflection = true
                         }
                     },
                     onStartTable: {
-                        isShowingQuickStartMenu = false
+                        isShowingLandingPage = false
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             isShowingCreateTable = true
                         }
+                    },
+                    onDismiss: {
+                        isShowingLandingPage = false
                     }
                 )
-                .presentationDetents([.height(320)])
             }
             .sheet(isPresented: $isShowingQuickWin) {
                 ReflectionComposerView(reflectionType: .quickWin)

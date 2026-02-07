@@ -6,9 +6,19 @@ struct ReflectionDetailView: View {
 
     let reflection: SupabaseReflection
 
+    @State private var currentBody: String
     @State private var showingDeleteAlert = false
     @State private var isDeleting = false
     @State private var showingShareSheet = false
+    @State private var showingEditSheet = false
+    @State private var editText = ""
+    @State private var isSavingEdit = false
+    @State private var editErrorMessage: String?
+
+    init(reflection: SupabaseReflection) {
+        self.reflection = reflection
+        _currentBody = State(initialValue: reflection.body)
+    }
 
     private var isQuickWin: Bool {
         reflection.reflectionType == "quick_win"
@@ -16,6 +26,13 @@ struct ReflectionDetailView: View {
 
     private var typeLabel: String {
         isQuickWin ? "Quick Win" : "Deep Reflection"
+    }
+
+    /// Returns a reflection copy with the latest body text (for passing to share sheet after edits)
+    private var currentReflection: SupabaseReflection {
+        var r = reflection
+        r.body = currentBody
+        return r
     }
 
     var body: some View {
@@ -68,7 +85,7 @@ struct ReflectionDetailView: View {
                             .foregroundStyle(DesignSystem.Colors.mutedText)
                             .tracking(0.5)
 
-                        Text(reflection.body)
+                        Text(currentBody)
                             .font(.body)
                             .foregroundStyle(.primary)
                     }
@@ -78,32 +95,31 @@ struct ReflectionDetailView: View {
                     .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium))
                     .shadow(color: Color.black.opacity(0.05), radius: 8, y: 4)
 
-                    Spacer(minLength: DesignSystem.Spacing.large)
-
-                    // Delete button
-                    Button(role: .destructive) {
-                        showingDeleteAlert = true
+                    // Share to Table CTA
+                    Button {
+                        showingShareSheet = true
                     } label: {
-                        HStack {
-                            if isDeleting {
-                                ProgressView()
-                                    .tint(.red)
-                            } else {
-                                Image(systemName: "trash")
+                        VStack(spacing: 4) {
+                            HStack {
+                                Image(systemName: "rectangle.stack.badge.plus")
+                                Text("Share to Table")
                             }
-                            Text("Delete Reflection")
+                            .font(.subheadline.weight(.medium))
+
+                            Text("You'll choose an excerpt.")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.8))
                         }
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, DesignSystem.Spacing.medium)
-                        .background(Color.red.opacity(0.08))
+                        .background(DesignSystem.Colors.primary)
                         .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium))
                     }
-                    .disabled(isDeleting)
                 }
                 .padding(.horizontal, DesignSystem.Padding.screen)
                 .padding(.top, DesignSystem.Spacing.large)
+                .padding(.bottom, DesignSystem.Spacing.xLarge)
             }
             .background(DesignSystem.Colors.screenBackground)
             .navigationTitle("Reflection")
@@ -111,21 +127,40 @@ struct ReflectionDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        showingShareSheet = true
+                        dismiss()
                     } label: {
-                        Image(systemName: "square.and.arrow.up")
+                        Image(systemName: "xmark")
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        dismiss()
+                    Menu {
+                        Button {
+                            editText = currentBody
+                            editErrorMessage = nil
+                            showingEditSheet = true
+                        } label: {
+                            Label("Edit Reflection", systemImage: "pencil")
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive) {
+                            showingDeleteAlert = true
+                        } label: {
+                            Label("Delete Reflection", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
                 }
             }
             .sheet(isPresented: $showingShareSheet) {
-                ShareReflectionSheet(reflection: reflection)
+                ShareReflectionSheet(reflection: currentReflection)
             }
-            .alert("Delete Reflection?", isPresented: $showingDeleteAlert) {
+            .sheet(isPresented: $showingEditSheet) {
+                editReflectionSheet
+            }
+            .alert("Delete this reflection?", isPresented: $showingDeleteAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Delete", role: .destructive) {
                     Task {
@@ -133,9 +168,113 @@ struct ReflectionDetailView: View {
                     }
                 }
             } message: {
-                Text("This action cannot be undone.")
+                Text("This can't be undone.")
             }
         }
+    }
+
+    // MARK: - Edit Sheet
+
+    private var editReflectionSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.large) {
+                    if let prompt = reflection.prompt {
+                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.small) {
+                            Text("PROMPT")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(DesignSystem.Colors.mutedText)
+                                .tracking(0.5)
+
+                            Text(prompt)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(DesignSystem.Padding.card)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(DesignSystem.Colors.primary.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium))
+                    }
+
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.small) {
+                        Text("YOUR REFLECTION")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(DesignSystem.Colors.mutedText)
+                            .tracking(0.5)
+
+                        ZStack(alignment: .topLeading) {
+                            TextEditor(text: $editText)
+                                .frame(minHeight: 200)
+                                .scrollContentBackground(.hidden)
+
+                            if editText.isEmpty {
+                                Text("Write your reflection…")
+                                    .foregroundStyle(DesignSystem.Colors.mutedText)
+                                    .padding(.top, 8)
+                                    .padding(.leading, 5)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                        .padding(DesignSystem.Padding.card)
+                        .background(DesignSystem.Colors.cardBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium)
+                                .stroke(DesignSystem.Colors.border, lineWidth: 1)
+                        )
+                    }
+
+                    if let editErrorMessage {
+                        Text(editErrorMessage)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+                .padding(.horizontal, DesignSystem.Padding.screen)
+                .padding(.top, DesignSystem.Spacing.large)
+            }
+            .background(DesignSystem.Colors.screenBackground)
+            .navigationTitle("Edit Reflection")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        showingEditSheet = false
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    if isSavingEdit {
+                        ProgressView()
+                    } else {
+                        Button("Save") {
+                            Task {
+                                await saveEdit()
+                            }
+                        }
+                        .disabled(editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Actions
+
+    private func saveEdit() async {
+        let trimmed = editText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        isSavingEdit = true
+        editErrorMessage = nil
+
+        do {
+            try await supabaseManager.updateReflection(id: reflection.id, body: trimmed)
+            currentBody = trimmed
+            showingEditSheet = false
+        } catch {
+            editErrorMessage = error.localizedDescription
+        }
+        isSavingEdit = false
     }
 
     private func deleteReflection() async {

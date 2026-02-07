@@ -4,18 +4,25 @@ struct QuickStartMenuView: View {
     let onLogWin: () -> Void
     let onDeepReflection: () -> Void
     let onStartTable: () -> Void
+    let onDismiss: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            // Handle indicator
-            RoundedRectangle(cornerRadius: 2.5)
-                .fill(Color.secondary.opacity(0.3))
-                .frame(width: 36, height: 5)
-                .padding(.top, 8)
-                .padding(.bottom, DesignSystem.Spacing.medium)
+            Spacer()
+                .frame(height: 120)
 
-            VStack(spacing: 0) {
-                actionRow(
+            Text("What would you like to do?")
+                .font(.system(size: 26, weight: .bold))
+                .multilineTextAlignment(.center)
+                .padding(.bottom, 6)
+
+            Text("Select an activity to begin")
+                .font(.subheadline)
+                .foregroundStyle(DesignSystem.Colors.mutedText)
+                .padding(.bottom, DesignSystem.Spacing.large)
+
+            VStack(spacing: DesignSystem.Spacing.small) {
+                actionCard(
                     icon: "star.fill",
                     iconColor: .yellow,
                     title: "Log a Win",
@@ -24,10 +31,7 @@ struct QuickStartMenuView: View {
                     onLogWin()
                 }
 
-                Divider()
-                    .padding(.leading, 60)
-
-                actionRow(
+                actionCard(
                     icon: "leaf.fill",
                     iconColor: DesignSystem.Colors.primary,
                     title: "Deep Reflection",
@@ -36,10 +40,7 @@ struct QuickStartMenuView: View {
                     onDeepReflection()
                 }
 
-                Divider()
-                    .padding(.leading, 60)
-
-                actionRow(
+                actionCard(
                     icon: "rectangle.3.group.fill",
                     iconColor: .purple,
                     title: "Start a Table",
@@ -48,16 +49,27 @@ struct QuickStartMenuView: View {
                     onStartTable()
                 }
             }
-            .background(DesignSystem.Colors.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium))
             .padding(.horizontal, DesignSystem.Padding.screen)
 
             Spacer()
+
+            Button(action: onDismiss) {
+                Circle()
+                    .fill(DesignSystem.Colors.cardBackground)
+                    .frame(width: 48, height: 48)
+                    .overlay(
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.primary)
+                    )
+            }
+            .padding(.bottom, 40)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DesignSystem.Colors.screenBackground)
     }
 
-    private func actionRow(
+    private func actionCard(
         icon: String,
         iconColor: Color,
         title: String,
@@ -93,6 +105,8 @@ struct QuickStartMenuView: View {
             }
             .padding(DesignSystem.Padding.card)
         }
+        .background(DesignSystem.Colors.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium))
     }
 }
 
@@ -100,6 +114,7 @@ struct QuickStartMenuView: View {
     QuickStartMenuView(
         onLogWin: {},
         onDeepReflection: {},
-        onStartTable: {}
+        onStartTable: {},
+        onDismiss: {}
     )
 }

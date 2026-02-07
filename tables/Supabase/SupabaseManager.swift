@@ -933,6 +933,25 @@ final class SupabaseManager: ObservableObject {
         }
     }
 
+    func updateReflection(id: UUID, body: String) async throws {
+        try await executeWithTokenRefresh {
+            try await self.postgrest
+                .from("reflections")
+                .update([
+                    "body": body,
+                    "updated_at": ISO8601DateFormatter().string(from: Date())
+                ])
+                .eq("id", value: id.uuidString)
+                .execute()
+
+            if let index = self.reflections.firstIndex(where: { $0.id == id }) {
+                self.reflections[index].body = body
+                self.reflections[index].updatedAt = Date()
+            }
+            print("✅ Updated reflection: \(id)")
+        }
+    }
+
     func deleteReflection(_ reflectionId: UUID) async throws {
         try await executeWithTokenRefresh {
             try await self.postgrest
@@ -980,6 +999,44 @@ final class SupabaseManager: ObservableObject {
 
             let createdCard = try JSONDecoder.supabaseDecoder.decode(SupabaseCard.self, from: response.data)
             print("✅ Shared reflection to table: \(tableId)")
+            return createdCard
+        }
+    }
+
+    func shareReflectionExcerptToTable(reflection: SupabaseReflection, tableId: UUID, excerptBody: String, title: String) async throws -> SupabaseCard {
+        guard let displayName = currentDisplayName ?? currentUserEmail else {
+            throw SupabaseError.notAuthenticated
+        }
+
+        return try await executeWithTokenRefresh {
+            let card = InsertCard(
+                id: UUID(),
+                tableId: tableId,
+                title: title,
+                body: excerptBody,
+                linkUrl: nil,
+                authorName: displayName,
+                status: "active",
+                sourceReflectionId: reflection.id,
+                sourcePrompt: reflection.prompt
+            )
+
+            let response = try await self.postgrest
+                .from("cards")
+                .insert(card)
+                .select()
+                .single()
+                .execute()
+
+            // Update the table's updated_at timestamp
+            try await self.postgrest
+                .from("tables")
+                .update(["updated_at": ISO8601DateFormatter().string(from: Date())])
+                .eq("id", value: tableId.uuidString)
+                .execute()
+
+            let createdCard = try JSONDecoder.supabaseDecoder.decode(SupabaseCard.self, from: response.data)
+            print("✅ Shared reflection excerpt to table: \(tableId)")
             return createdCard
         }
     }

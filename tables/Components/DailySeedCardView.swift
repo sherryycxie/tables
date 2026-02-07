@@ -28,7 +28,7 @@ struct DailySeedCardView: View {
             }
         }
         .padding(DesignSystem.Padding.card)
-        .frame(alignment: .leading)
+        .frame(maxHeight: .infinity, alignment: .leading)
         .background(DesignSystem.Colors.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium))
         .shadow(color: Color.black.opacity(0.05), radius: 8, y: 4)
