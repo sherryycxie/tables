@@ -270,6 +270,10 @@ struct SupabaseTableDetailView: View {
 struct SupabaseCardCellView: View {
     let card: SupabaseCard
 
+    private var isSharedReflection: Bool {
+        card.sourceReflectionId != nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.small) {
             HStack(alignment: .top) {
@@ -277,6 +281,22 @@ struct SupabaseCardCellView: View {
                     Text(title)
                         .font(.headline)
                         .foregroundStyle(.primary)
+                }
+
+                Spacer()
+
+                if isSharedReflection {
+                    HStack(spacing: 4) {
+                        Image(systemName: "leaf.fill")
+                            .font(.caption2)
+                        Text("Shared Reflection")
+                            .font(.caption2.weight(.semibold))
+                    }
+                    .foregroundStyle(DesignSystem.Colors.primary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(DesignSystem.Colors.primary.opacity(0.12))
+                    .clipShape(Capsule())
                 }
 
                 if card.status == "discussed" {
@@ -288,6 +308,24 @@ struct SupabaseCardCellView: View {
                         .background(DesignSystem.Colors.primary)
                         .clipShape(Capsule())
                 }
+            }
+
+            if let sourcePrompt = card.sourcePrompt, !sourcePrompt.isEmpty {
+                HStack(spacing: DesignSystem.Spacing.small) {
+                    Image(systemName: "quote.opening")
+                        .font(.caption2)
+                        .foregroundStyle(DesignSystem.Colors.primary)
+
+                    Text(sourcePrompt)
+                        .font(.caption)
+                        .foregroundStyle(DesignSystem.Colors.mutedText)
+                        .italic()
+                        .lineLimit(2)
+                }
+                .padding(.horizontal, DesignSystem.Spacing.small)
+                .padding(.vertical, DesignSystem.Spacing.xSmall)
+                .background(DesignSystem.Colors.primary.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.small))
             }
 
             Text(card.body)

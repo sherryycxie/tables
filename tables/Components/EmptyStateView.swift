@@ -29,6 +29,7 @@ struct EmptyStateView: View {
 
             PrimaryButton(title: actionTitle, systemImage: "plus", action: action)
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, DesignSystem.Padding.screen)
     }
 }

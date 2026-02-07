@@ -12,6 +12,7 @@ final class SupabaseManager: ObservableObject {
     @Published var currentDisplayName: String?
     @Published var currentFirstName: String?
     @Published var currentLastName: String?
+    @Published var hasCompletedOnboarding: Bool = false
 
     /// Returns the full name (first + last) or falls back to displayName or email
     var currentFullName: String? {
@@ -25,6 +26,7 @@ final class SupabaseManager: ObservableObject {
     }
 
     @Published var tables: [SupabaseTable] = []
+    @Published var reflections: [SupabaseReflection] = []
     @Published var isLoading = false
     @Published var error: String?
 
@@ -91,6 +93,7 @@ final class SupabaseManager: ObservableObject {
             isAuthenticated = true
             await fetchProfile()
             await fetchTables()
+            await fetchReflections()
             await setupRealtimeSubscription()
         } catch {
             isAuthenticated = false
@@ -169,6 +172,7 @@ final class SupabaseManager: ObservableObject {
         isAuthenticated = true
         await fetchProfile()
         await fetchTables()
+        await fetchReflections()
         await setupRealtimeSubscription()
     }
 
@@ -181,7 +185,9 @@ final class SupabaseManager: ObservableObject {
         currentFirstName = nil
         currentLastName = nil
         currentAccessToken = nil
+        hasCompletedOnboarding = false
         tables = []
+        reflections = []
         await removeRealtimeSubscription()
         await removeAllCardSubscriptions()
     }
@@ -220,8 +226,9 @@ final class SupabaseManager: ObservableObject {
                 self.currentDisplayName = profile.displayName
                 self.currentFirstName = profile.firstName
                 self.currentLastName = profile.lastName
+                self.hasCompletedOnboarding = profile.hasCompletedOnboarding ?? false
 
-                print("📋 Fetched profile - displayName: \(profile.displayName ?? "nil"), firstName: \(profile.firstName ?? "nil"), lastName: \(profile.lastName ?? "nil")")
+                print("📋 Fetched profile - displayName: \(profile.displayName ?? "nil"), firstName: \(profile.firstName ?? "nil"), lastName: \(profile.lastName ?? "nil"), hasCompletedOnboarding: \(self.hasCompletedOnboarding)")
             }
         } catch {
             print("⚠️ Failed to fetch profile: \(error)")
@@ -368,6 +375,28 @@ final class SupabaseManager: ObservableObject {
 
         // Refresh tables to ensure we have the latest data
         await fetchTables()
+    }
+
+    /// Marks onboarding as complete for the current user
+    func completeOnboarding() async {
+        guard let userId = currentUserId else { return }
+
+        do {
+            try await executeWithTokenRefresh {
+                try await self.postgrest
+                    .from("profiles")
+                    .update(["has_completed_onboarding": true])
+                    .eq("id", value: userId.uuidString)
+                    .execute()
+
+                self.hasCompletedOnboarding = true
+                print("✅ Onboarding marked as complete")
+            }
+        } catch {
+            print("⚠️ Failed to mark onboarding complete: \(error)")
+            // Still update local state so user can proceed
+            self.hasCompletedOnboarding = true
+        }
     }
 
     /// Updates the user's name in all tables' members arrays
@@ -851,6 +880,107 @@ final class SupabaseManager: ObservableObject {
                 .execute()
 
             return try JSONDecoder.supabaseDecoder.decode([SupabaseNudge].self, from: response.data)
+        }
+    }
+
+    // MARK: - Reflections
+
+    func fetchReflections() async {
+        guard isAuthenticated, let userId = currentUserId else { return }
+
+        do {
+            try await executeWithTokenRefresh {
+                let response = try await self.postgrest
+                    .from("reflections")
+                    .select()
+                    .eq("user_id", value: userId.uuidString)
+                    .order("created_at", ascending: false)
+                    .execute()
+
+                self.reflections = try JSONDecoder.supabaseDecoder.decode([SupabaseReflection].self, from: response.data)
+                print("📋 Fetched \(self.reflections.count) reflections")
+            }
+        } catch {
+            print("⚠️ Failed to fetch reflections: \(error)")
+        }
+    }
+
+    func createReflection(body: String, prompt: String?, reflectionType: String) async throws -> SupabaseReflection {
+        guard let userId = currentUserId else {
+            throw SupabaseError.notAuthenticated
+        }
+
+        return try await executeWithTokenRefresh {
+            let newReflection = InsertReflection(
+                id: UUID(),
+                userId: userId,
+                body: body,
+                prompt: prompt,
+                reflectionType: reflectionType
+            )
+
+            let response = try await self.postgrest
+                .from("reflections")
+                .insert(newReflection)
+                .select()
+                .single()
+                .execute()
+
+            let created = try JSONDecoder.supabaseDecoder.decode(SupabaseReflection.self, from: response.data)
+            self.reflections.insert(created, at: 0)
+            print("✅ Created reflection: \(created.id)")
+            return created
+        }
+    }
+
+    func deleteReflection(_ reflectionId: UUID) async throws {
+        try await executeWithTokenRefresh {
+            try await self.postgrest
+                .from("reflections")
+                .delete()
+                .eq("id", value: reflectionId.uuidString)
+                .execute()
+
+            self.reflections.removeAll { $0.id == reflectionId }
+            print("✅ Deleted reflection: \(reflectionId)")
+        }
+    }
+
+    func shareReflectionToTable(reflection: SupabaseReflection, tableId: UUID) async throws -> SupabaseCard {
+        guard let displayName = currentDisplayName ?? currentUserEmail else {
+            throw SupabaseError.notAuthenticated
+        }
+
+        return try await executeWithTokenRefresh {
+            let card = InsertCard(
+                id: UUID(),
+                tableId: tableId,
+                title: reflection.prompt,
+                body: reflection.body,
+                linkUrl: nil,
+                authorName: displayName,
+                status: "active",
+                sourceReflectionId: reflection.id,
+                sourcePrompt: reflection.prompt
+            )
+
+            let response = try await self.postgrest
+                .from("cards")
+                .insert(card)
+                .select()
+                .single()
+                .execute()
+
+            // Update the table's updated_at timestamp
+            try await self.postgrest
+                .from("tables")
+                .update(["updated_at": ISO8601DateFormatter().string(from: Date())])
+                .eq("id", value: tableId.uuidString)
+                .execute()
+
+            let createdCard = try JSONDecoder.supabaseDecoder.decode(SupabaseCard.self, from: response.data)
+            print("✅ Shared reflection to table: \(tableId)")
+            return createdCard
         }
     }
 

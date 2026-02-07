@@ -31,6 +31,8 @@ struct SupabaseCard: Codable, Identifiable, Sendable {
     var createdAt: Date
     var authorName: String
     var status: String
+    var sourceReflectionId: UUID?
+    var sourcePrompt: String?
 
     enum CodingKeys: String, CodingKey {
         case id, title, body, status
@@ -38,6 +40,8 @@ struct SupabaseCard: Codable, Identifiable, Sendable {
         case linkUrl = "link_url"
         case createdAt = "created_at"
         case authorName = "author_name"
+        case sourceReflectionId = "source_reflection_id"
+        case sourcePrompt = "source_prompt"
     }
 }
 
@@ -93,6 +97,7 @@ struct SupabaseProfile: Codable, Identifiable, Sendable {
     var firstName: String?
     var lastName: String?
     var createdAt: Date?
+    var hasCompletedOnboarding: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, email
@@ -100,6 +105,7 @@ struct SupabaseProfile: Codable, Identifiable, Sendable {
         case firstName = "first_name"
         case lastName = "last_name"
         case createdAt = "created_at"
+        case hasCompletedOnboarding = "has_completed_onboarding"
     }
 
     /// Returns the full name (first + last) or falls back to displayName
@@ -140,12 +146,16 @@ struct InsertCard: Codable, Sendable {
     var linkUrl: String?
     var authorName: String
     var status: String
+    var sourceReflectionId: UUID?
+    var sourcePrompt: String?
 
     enum CodingKeys: String, CodingKey {
         case id, title, body, status
         case tableId = "table_id"
         case linkUrl = "link_url"
         case authorName = "author_name"
+        case sourceReflectionId = "source_reflection_id"
+        case sourcePrompt = "source_prompt"
     }
 }
 
@@ -193,11 +203,47 @@ struct InsertProfile: Codable, Sendable {
     var displayName: String
     var firstName: String?
     var lastName: String?
+    var hasCompletedOnboarding: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, email
         case displayName = "display_name"
         case firstName = "first_name"
         case lastName = "last_name"
+        case hasCompletedOnboarding = "has_completed_onboarding"
+    }
+}
+
+// MARK: - Reflections
+
+struct SupabaseReflection: Codable, Identifiable, Sendable {
+    let id: UUID
+    let userId: UUID
+    var body: String
+    var prompt: String?
+    var reflectionType: String
+    var createdAt: Date
+    var updatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, body, prompt
+        case userId = "user_id"
+        case reflectionType = "reflection_type"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct InsertReflection: Codable, Sendable {
+    let id: UUID
+    let userId: UUID
+    var body: String
+    var prompt: String?
+    var reflectionType: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, body, prompt
+        case userId = "user_id"
+        case reflectionType = "reflection_type"
     }
 }

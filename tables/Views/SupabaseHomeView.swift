@@ -10,13 +10,13 @@ struct SupabaseHomeView: View {
     @State private var showingFriendFilter = false
     @State private var navigationPath = NavigationPath()
     @State private var selectedTableId: UUID?
+    @State private var selectedTable: SupabaseTable?
     @State private var showingErrorAlert = false
     @State private var errorMessage = ""
 
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .bottomTrailing) {
-                List {
+        ZStack(alignment: .bottomTrailing) {
+            List {
                     // Header section
                     Section {
                         header
@@ -101,16 +101,12 @@ struct SupabaseHomeView: View {
                     } else {
                         Section {
                             ForEach(filteredTables) { table in
-                                ZStack {
-                                    // Hidden NavigationLink (no chevron)
-                                    NavigationLink(value: table) {
-                                        EmptyView()
-                                    }
-                                    .opacity(0)
-
-                                    // Visible row content
+                                Button {
+                                    selectedTable = table
+                                } label: {
                                     SupabaseTableRowView(table: table)
                                 }
+                                .buttonStyle(.plain)
                                 .listRowInsets(EdgeInsets(top: 6, leading: DesignSystem.Padding.screen, bottom: 6, trailing: DesignSystem.Padding.screen))
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
@@ -159,44 +155,43 @@ struct SupabaseHomeView: View {
                     await supabaseManager.fetchTables()
                 }
                 .contentMargins(.bottom, 110, for: .scrollContent)
-                .navigationDestination(for: SupabaseTable.self) { table in
-                    SupabaseTableDetailView(table: table)
-                }
 
                 PrimaryButton(title: "New Table", systemImage: "plus") {
                     isShowingCreateTable = true
                 }
                 .padding(.trailing, DesignSystem.Padding.screen)
                 .padding(.bottom, DesignSystem.Padding.screen)
+        }
+        .background(DesignSystem.Colors.screenBackground)
+        .navigationTitle("Tables")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(item: $selectedTable) { table in
+            SupabaseTableDetailView(table: table)
+        }
+        .sheet(isPresented: $isShowingCreateTable) {
+            SupabaseCreateTableView()
+        }
+        .sheet(isPresented: $isShowingProfile) {
+            ProfileView()
+        }
+        .sheet(item: Binding(
+            get: { selectedTableId.flatMap { id in supabaseManager.tables.first { $0.id == id } } },
+            set: { selectedTableId = $0?.id }
+        )) { table in
+            NavigationStack {
+                SupabaseTableDetailView(table: table)
             }
-            .background(DesignSystem.Colors.screenBackground)
-            .navigationTitle("Tables")
-            .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $isShowingCreateTable) {
-                SupabaseCreateTableView()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openTable)) { notification in
+            if let tableId = notification.userInfo?["tableId"] as? UUID {
+                selectedTableId = tableId
+                print("📱 Deep link: Opening table \(tableId)")
             }
-            .sheet(isPresented: $isShowingProfile) {
-                ProfileView()
-            }
-            .sheet(item: Binding(
-                get: { selectedTableId.flatMap { id in supabaseManager.tables.first { $0.id == id } } },
-                set: { selectedTableId = $0?.id }
-            )) { table in
-                NavigationStack {
-                    SupabaseTableDetailView(table: table)
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .openTable)) { notification in
-                if let tableId = notification.userInfo?["tableId"] as? UUID {
-                    selectedTableId = tableId
-                    print("📱 Deep link: Opening table \(tableId)")
-                }
-            }
-            .alert("Error", isPresented: $showingErrorAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(errorMessage)
-            }
+        }
+        .alert("Error", isPresented: $showingErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
         }
     }
 
@@ -302,7 +297,7 @@ struct SupabaseHomeView: View {
 
     private var header: some View {
         HStack {
-            Text("Your Tables")
+            Text("All Tables")
                 .font(.system(size: 28, weight: .bold))
 
             Spacer()
