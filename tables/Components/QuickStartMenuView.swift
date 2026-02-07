@@ -19,7 +19,7 @@ struct QuickStartMenuView: View {
                     icon: "star.fill",
                     iconColor: .yellow,
                     title: "Log a Win",
-                    subtitle: "Capture a quick victory or positive moment"
+                    subtitle: "Capture a quick victory"
                 ) {
                     onLogWin()
                 }
@@ -82,6 +82,7 @@ struct QuickStartMenuView: View {
                     Text(subtitle)
                         .font(.subheadline)
                         .foregroundStyle(DesignSystem.Colors.mutedText)
+                        .lineLimit(1)
                 }
 
                 Spacer()

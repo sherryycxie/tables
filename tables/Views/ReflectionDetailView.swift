@@ -8,6 +8,7 @@ struct ReflectionDetailView: View {
 
     @State private var showingDeleteAlert = false
     @State private var isDeleting = false
+    @State private var showingShareSheet = false
 
     private var isQuickWin: Bool {
         reflection.reflectionType == "quick_win"
@@ -108,11 +109,21 @@ struct ReflectionDetailView: View {
             .navigationTitle("Reflection")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showingShareSheet = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
                 }
+            }
+            .sheet(isPresented: $showingShareSheet) {
+                ShareReflectionSheet(reflection: reflection)
             }
             .alert("Delete Reflection?", isPresented: $showingDeleteAlert) {
                 Button("Cancel", role: .cancel) { }

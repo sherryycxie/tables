@@ -3,29 +3,58 @@ import SwiftUI
 struct AllReflectionsView: View {
     @EnvironmentObject var supabaseManager: SupabaseManager
     @State private var selectedReflection: SupabaseReflection?
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
 
     private var sortedReflections: [SupabaseReflection] {
         supabaseManager.reflections.sorted { $0.createdAt > $1.createdAt }
     }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: DesignSystem.Spacing.medium) {
-                ForEach(sortedReflections) { reflection in
-                    ReflectionRowView(reflection: reflection)
-                        .onTapGesture {
-                            selectedReflection = reflection
+        List {
+            ForEach(sortedReflections) { reflection in
+                ReflectionRowView(reflection: reflection)
+                    .onTapGesture {
+                        selectedReflection = reflection
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(
+                        top: DesignSystem.Spacing.medium / 2,
+                        leading: DesignSystem.Padding.screen,
+                        bottom: DesignSystem.Spacing.medium / 2,
+                        trailing: DesignSystem.Padding.screen
+                    ))
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            Task { await deleteReflection(reflection.id) }
+                        } label: {
+                            Label("Delete", systemImage: "trash")
                         }
-                }
+                    }
             }
-            .padding(.horizontal, DesignSystem.Padding.screen)
-            .padding(.vertical, DesignSystem.Spacing.medium)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .background(DesignSystem.Colors.screenBackground)
         .navigationTitle("Your Garden")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selectedReflection) { reflection in
             ReflectionDetailView(reflection: reflection)
+        }
+        .alert("Error", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage)
+        }
+    }
+
+    private func deleteReflection(_ reflectionId: UUID) async {
+        do {
+            try await supabaseManager.deleteReflection(reflectionId)
+        } catch {
+            errorMessage = "Failed to delete reflection: \(error.localizedDescription)"
+            showErrorAlert = true
         }
     }
 }

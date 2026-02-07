@@ -30,7 +30,15 @@ struct TablesApp: App {
         WindowGroup {
             Group {
                 if supabaseManager.isAuthenticated {
-                    NewHomeView()
+                    if supabaseManager.hasCompletedOnboarding {
+                        NewHomeView()
+                    } else {
+                        OnboardingView(onComplete: {
+                            Task {
+                                await supabaseManager.completeOnboarding()
+                            }
+                        })
+                    }
                 } else {
                     AuthView()
                 }
