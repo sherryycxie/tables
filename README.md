@@ -108,9 +108,9 @@ tables/
 3. **Run database migrations**
 
    Execute the SQL files in order:
-   - `supabase_rls_policies.sql` — Row-level security
-   - `supabase_functions.sql` — Database functions
-   - `enable_realtime_for_tables.sql` — Realtime subscriptions
+   - `database/setup/01_rls_policies.sql` — Row-level security
+   - `database/setup/02_functions.sql` — Database functions
+   - `database/realtime/enable_tables.sql` — Realtime subscriptions
 
 4. **Open in Xcode**
    ```bash
